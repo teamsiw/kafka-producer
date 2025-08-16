@@ -10,24 +10,26 @@ jobs:
     steps:
       - name: checkout release
         uses: actions/checkout@v4
-        # 한글주석: 소스 체크아웃
 
       - name: archive to tar.gz
         run: tar cvfz ./kafka-producer.tar.gz *
-        # 한글주석: 기존 그대로
 
       - name: AWS configure credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
           aws-secret-access-key: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
-          aws-region: ap-northeast-2
-        # 한글주석: 서울 리전
+          aws-region: ap-northeast-2   # ★ 서울
+
+      # --- 추가: 사전 진단 ---
+      - name: who am i
+        run: aws sts get-caller-identity  # ★ 계정이 147997135716 인지 확인
+      - name: check deployment group
+        run: aws deploy get-deployment-group --region ap-northeast-2 --application-name datalake-deploy --deployment-group-name kafka-deploy
+      # -----------------------
 
       - name: upload to S3
         run: aws s3 cp --region ap-northeast-2 ./kafka-producer.tar.gz s3://datalake-actions-deploy-siw/kafka-producer/kafka-producer.tar.gz
-        # 한글주석: 기존 그대로
 
       - name: deploy with AWS codeDeploy
         run: aws deploy create-deployment --region ap-northeast-2 --application-name datalake-deploy --deployment-group-name kafka-deploy --s3-location bucket=datalake-actions-deploy-siw,bundleType=tgz,key=kafka-producer/kafka-producer.tar.gz
-        # 한글주석: ★ 리전만 추가
