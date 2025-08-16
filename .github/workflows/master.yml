@@ -1,5 +1,4 @@
 name: deploy to kafka broker
-
 on:
   push:
     branches: [ master ]
@@ -8,39 +7,27 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: checkout release
         uses: actions/checkout@v4
-        # 주석(한글): 레포지토리 소스 체크아웃
+        # 한글주석: 소스 체크아웃
 
-      - name: Archive to tar.gz
-        run: |
-          # 주석(한글): 불필요 폴더 제외하고 전체 압축, appspec.yml 반드시 포함
-          test -f appspec.yml
-          tar --exclude='.git' --exclude='.github' -czf kafka-producer.tar.gz .
-          ls -lh kafka-producer.tar.gz
-        # 주석(한글): 크기가 비정상(수 KB)이면 실패로 간주해도 됨
+      - name: archive to tar.gz
+        run: tar cvfz ./kafka-producer.tar.gz *
+        # 한글주석: 기존 그대로
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: AWS configure credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
           aws-secret-access-key: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
           aws-region: ap-northeast-2
-        # 주석(한글): 서울 리전 고정
+        # 한글주석: 서울 리전
 
-      - name: Upload to S3
-        run: |
-          aws s3 cp kafka-producer.tar.gz s3://datalake-actions-deploy-siw/kafka-producer/kafka-producer.tar.gz --region ap-northeast-2
-          aws s3 ls s3://datalake-actions-deploy-siw/kafka-producer/kafka-producer.tar.gz --region ap-northeast-2
-        # 주석(한글): 업로드 후 크기 확인
+      - name: upload to S3
+        run: aws s3 cp --region ap-northeast-2 ./kafka-producer.tar.gz s3://datalake-actions-deploy-siw/kafka-producer/kafka-producer.tar.gz
+        # 한글주석: 기존 그대로
 
-      - name: Create CodeDeploy deployment
-        run: |
-          aws deploy create-deployment \
-            --application-name datalake-deploy \
-            --deployment-group-name kafka-deploy \
-            --s3-location bucket=datalake-actions-deploy-siw,key=kafka-producer/kafka-producer.tar.gz,bundleType=tgz \
-            --region ap-northeast-2
-        # 주석(한글): 앱/그룹명, 리전 정확히 일치
+      - name: deploy with AWS codeDeploy
+        run: aws deploy create-deployment --region ap-northeast-2 --application-name datalake-deploy --deployment-group-name kafka-deploy --s3-location bucket=datalake-actions-deploy-siw,bundleType=tgz,key=kafka-producer/kafka-producer.tar.gz
+        # 한글주석: ★ 리전만 추가
