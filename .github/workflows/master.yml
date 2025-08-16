@@ -14,19 +14,18 @@ jobs:
       - name: archive to tar.gz
         run: tar cvfz ./kafka-producer.tar.gz *
 
-      - name: AWS configure credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      # 🔁 액세스키 → OIDC 역할 Assume (같은 계정 고정)
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-          aws-secret-access-key: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
-          aws-region: ap-northeast-2   # ★ 서울
+          role-to-assume: arn:aws:iam::147997135716:role/role-datalake-github-actions
+          aws-region: ap-northeast-2
 
-      # --- 추가: 사전 진단 ---
+      # 🔎 진단: 계정/그룹 확인 (여기서 실패하면 바로 원인 파악됨)
       - name: who am i
-        run: aws sts get-caller-identity  # ★ 계정이 147997135716 인지 확인
+        run: aws sts get-caller-identity   # 계정이 147997135716 인지 확인
       - name: check deployment group
         run: aws deploy get-deployment-group --region ap-northeast-2 --application-name datalake-deploy --deployment-group-name kafka-deploy
-      # -----------------------
 
       - name: upload to S3
         run: aws s3 cp --region ap-northeast-2 ./kafka-producer.tar.gz s3://datalake-actions-deploy-siw/kafka-producer/kafka-producer.tar.gz
