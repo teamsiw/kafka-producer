@@ -8,13 +8,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     env:
-      APP_NAME: datalake-deploy         # 주석: CodeDeploy 애플리케이션명
-      GROUP_NAME: kafka-deploy          # 주석: 배포그룹명
-      AWS_REGION: ap-northeast-2        # 주석: 리전 고정
-      BKT: datalake-actions-deploy-siw  # 주석: S3 버킷
+      AWS_REGION: ap-northeast-2
+      APP_NAME: datalake-deploy            # CodeDeploy 애플리케이션
+      GROUP_NAME: kafka-deploy             # 배포그룹
+      BKT: datalake-actions-deploy-siw     # S3 버킷
       KEY: kafka-producer/kafka-producer.tar.gz
+      SERVICE_ROLE_ARN: arn:aws:iam::<ACCOUNT_ID>:role/CodeDeployServiceRole  # ← 본인 역할 ARN로 교체
+      EC2_TAG_KEY: Name
+      EC2_TAG_VAL: kafka-producer          # ← 대상 EC2 태그 값
 
     steps:
     - name: checkout
@@ -22,32 +24,48 @@ jobs:
 
     - name: archive to tar.gz
       run: |
-        # 주석: 필요 폴더만 압축 권장(예: src, app 등)
         tar cvfz kafka-producer.tar.gz --exclude .git --exclude .github *
 
     - name: configure aws credentials
-      # 주석: Access Key 사용시 v4도 가능. OIDC전환 권장
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
         aws-secret-access-key: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: sanity check (who am i / region)
+    - name: who am i
       run: |
-        aws sts get-caller-identity    # 주석: 계정 확인
-        aws configure list             # 주석: 리전/프로파일 확인
+        aws sts get-caller-identity        # 계정 확인
+        aws configure list                 # 리전 확인
 
     - name: upload to S3
       run: |
         aws s3 cp ./kafka-producer.tar.gz s3://$BKT/$KEY --region $AWS_REGION
-        aws s3 ls s3://$BKT/$KEY --region $AWS_REGION  # 주석: 업로드 확인
+        aws s3 ls s3://$BKT/$KEY --region $AWS_REGION  # 업로드 확인
 
-    - name: pre-check codedeploy resources
+    - name: ensure CodeDeploy app/group exist (upsert)
       run: |
-        # 주석: 애플리케이션/그룹 존재 확인(없으면 실패)
-        aws deploy get-application --application-name "$APP_NAME" --region $AWS_REGION
-        aws deploy get-deployment-group --application-name "$APP_NAME" --deployment-group-name "$GROUP_NAME" --region $AWS_REGION
+        set -e
+        # 앱 확인/생성
+        if ! aws deploy get-application --application-name "$APP_NAME" --region $AWS_REGION >/dev/null 2>&1; then
+          aws deploy create-application \
+            --application-name "$APP_NAME" \
+            --compute-platform Server \
+            --region $AWS_REGION
+        fi
+        # 배포그룹 확인/생성
+        if ! aws deploy get-deployment-group \
+             --application-name "$APP_NAME" \
+             --deployment-group-name "$GROUP_NAME" \
+             --region $AWS_REGION >/dev/null 2>&1; then
+          aws deploy create-deployment-group \
+            --application-name "$APP_NAME" \
+            --deployment-group-name "$GROUP_NAME" \
+            --service-role-arn "$SERVICE_ROLE_ARN" \
+            --deployment-config-name CodeDeployDefault.AllAtOnce \
+            --ec2-tag-filters Key=$EC2_TAG_KEY,Value=$EC2_TAG_VAL,Type=KEY_AND_VALUE \
+            --region $AWS_REGION
+        fi
 
     - name: deploy with AWS CodeDeploy
       run: |
