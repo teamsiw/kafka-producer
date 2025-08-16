@@ -28,7 +28,7 @@ jobs:
           aws-region: ap-northeast-2
 
       - name: who am i
-        run: aws sts get-caller-identity  # 출력 Account가 147997135716 이어야 함
+        run: aws sts get-caller-identity  # 출력 Account가 147997135716 이어야 함.
 
       - name: check deployment group
         run: aws deploy get-deployment-group --region ap-northeast-2 --application-name datalake-deploy --deployment-group-name kafka-deploy
