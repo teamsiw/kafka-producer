@@ -1,8 +1,14 @@
 name: deploy to kafka broker
+
 on:
   push:
     branches: [ master ]
   workflow_dispatch:
+
+# ★ OIDC 토큰 발급 허용 필수
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   build:
@@ -14,16 +20,16 @@ jobs:
       - name: archive to tar.gz
         run: tar cvfz ./kafka-producer.tar.gz *
 
-      # 🔁 액세스키 → OIDC 역할 Assume (같은 계정 고정)
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::147997135716:role/role-datalake-github-actions
+          role-session-name: gha-deploy
           aws-region: ap-northeast-2
 
-      # 🔎 진단: 계정/그룹 확인 (여기서 실패하면 바로 원인 파악됨)
       - name: who am i
-        run: aws sts get-caller-identity   # 계정이 147997135716 인지 확인
+        run: aws sts get-caller-identity  # 출력 Account가 147997135716 이어야 함
+
       - name: check deployment group
         run: aws deploy get-deployment-group --region ap-northeast-2 --application-name datalake-deploy --deployment-group-name kafka-deploy
 
