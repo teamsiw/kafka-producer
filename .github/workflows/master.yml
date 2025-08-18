@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: checkout release
-      # uses: 이미 만들어진 action을 사용할 때 사용.
+      # uses: 이미 만들어진 action을 사용할 때 사용
       # actions/checkout@4는 본 레파지토리의 내용을 checkout 하여 runner 서버에 저장함
       uses: actions/checkout@v4
 
